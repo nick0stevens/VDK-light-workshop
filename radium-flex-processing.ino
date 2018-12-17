@@ -49,13 +49,18 @@ delay(10);
 
 
 /*
- * processing code
+ Processing code
 
-This processing code reads and parses serial input
-// you will need to confirm that port number of your 
-arduino is correct;
+//reads serial port for sensor data from arduino
+// use web cam to obtain black and white image, if sensor data is above threhold
+// a full colour image is saved and shown for a few moments
+ 
+ 
 
 
+
+
+import processing.video.*;
 import processing.serial.*;
 
 Serial myPort; // The serial port wont be able to connect if the seril monitor in arduino is open so make sure to close it
@@ -64,39 +69,129 @@ String inBuffer = null; // stores one line of data from serial port
 float x, y, z;
 int lf = 10; // Linefeed in ASCII
 
+color black = color(0);
+color white = color(255);
+int numPixels;
+boolean snapped = false;
+boolean pushed = false;
+long snapTime;
+
+int threhold = 200;
+int counter = 0;
+Capture video;
 
 void setup() {
-size(640, 360);
-noStroke();
-// the for loop below prints all serial ports available on your computer, listed from 0 onwards
-// ie. the first one on the list is actually port zero and the sixth is port 5
+  
+  //fullScreen();
+  size(1920, 1080); // Change size to 320 x 240 if too slow at 640 x 480
+  strokeWeight(5);
+  
+  String[] cameras = Capture.list();
 
+  if (cameras == null) {
+    println("Failed to retrieve the list of available cameras, will try the default...");
+    video = new Capture(this, 640, 480);
+  } if (cameras.length == 0) {
+    println("There are no cameras available for capture.");
+    exit();
+  } else {
+    println("Available cameras:");
+    printArray(cameras);
 
-for(int i = 0; i<Serial.list().length; i++){
+    // The camera can be initialized directly using an element
+    // from the array returned by list():
+    video = new Capture(this, cameras[0]);
+    // Or, the settings can be defined based on the text in the list
+    //cam = new Capture(this, 640, 480, "Built-in iSight", 30);
+    
+    // Start capturing the images from the camera
+    video.start();
+  }
+   numPixels = width* height;
+  noCursor();
+  smooth();
+  
+  for(int i = 0; i<Serial.list().length; i++){
 println(i+"-"+Serial.list()[i]);
 }
 
 // find the one that is used by the ardunio and enter the number into the [] brackets below, and ensure that the baud rate on your ardunio is 9600
-myPort = new Serial(this, Serial.list()[3], 9600);
+myPort = new Serial(this, Serial.list()[0], 9600);
 
+  
 }
-
 
 void draw() {
-background(150);
-ellipseMode(CENTER);
+ 
 
-fill(255,0,0);
-ellipse(width/4*1,height/2,x+20,x+20);
-fill(0,255,0);
-ellipse(width/4*2,height/2,y+20,y+20);
-fill(0,0,255);
-ellipse(width/4*3,height/2,z+20,z+20);
+  if (video.available()) {
+    video.read();
+    
+ if(pushed){
+if(!snapped){
+  image(video, 0, 0);
+  
+  counter ++;
+  String fileName = "flexCam" + counter;
+  save(fileName);
+  snapped = true;
+  snapTime = millis();
+  println("snapped");
+}
+  }
+    
+    
+  else{  
+    video.loadPixels();
+    int threshold = 127; // Set the threshold value
+    float pixelBrightness; // Declare variable to store a pixel's color
+    // Turn each pixel in the video frame black or white depending on its brightness
+    loadPixels();
+    for (int i = 0; i < numPixels; i++) {
+      pixelBrightness = brightness(video.pixels[i]);
+      if (pixelBrightness > threshold) { // If the pixel is brighter than the
+        pixels[i] = white; // threshold value, make it white
+      } 
+      else { // Otherwise,
+        pixels[i] = black; // make it black
+      }
+    }
+    updatePixels();
+    // Test a location to see where it is contained. Fetch the pixel at the test
+    // location (the cursor), and compute its brightness
+    int testValue = get(mouseX, mouseY);
+    float testBrightness = brightness(testValue);
+    if (testBrightness > threshold) { // If the test location is brighter than
+      fill(black); // the threshold set the fill to black
+    } 
+    else { // Otherwise,
+      fill(white); // set the fill to white
+    }
 
-
+  }
+  }
+ if(millis()>snapTime+2000){
+   if(snapped){
+  snapped= false;
+  pushed = false;
+  //println("finnished");
+  }
+ }
+ 
+ if(x>threhold){
+ pushed = true;
+ println("flexed");
+ }
+ 
 }
 
-// this code is called automatically when there is data available in the serial port
+void keyPressed() {
+  switch (key) {
+    case ' ':   {pushed = true;
+  println("pushed");} break;
+  }
+}
+
 
 
 void serialEvent(Serial myPort) {
@@ -108,12 +203,10 @@ float[] dat = float(split(inBuffer, ',')); // parse comma-separated number strin
 x= dat[0];
 y= dat[1];
 z= dat[2];
-
 }
 catch (Exception e) { // if there is a non parsible string its declared null
 inBuffer=null;
 }
-
 }
 }
 */
