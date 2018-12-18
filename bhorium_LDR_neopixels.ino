@@ -1,5 +1,11 @@
 /*
-  reading light sensor and output to neopixel strip on pin 5
+  reads 10 light sensors into an array
+  if any sensor reads low the a color sequence it run.
+
+  calibration happens over the first 10 sec when the led on pin 13 is on.
+
+  show the highest and lowest values to the sensors during this time.
+
 */
 
 #include <Adafruit_NeoPixel.h>
@@ -8,27 +14,44 @@
 #endif
 
 #define PIN 5
-#define numPix 8
+#define numPix 150
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(numPix, PIN, NEO_GRB + NEO_KHZ800);
 
 
+int sensors[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; // an array of pin numbers to which LEDs are attached
+int sensorCount = 10;           // the number of pins (i.e. the length of the array)
+int sensorMin[] = {1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023};
+int sensorReading[10];
+int sensorThres[10];
 
-// These constants won't change.  They're used to give names
-// to the pins used:
-const int analogInPin1 = A0;  // Analog input pin that the potentiometer is attached to
-const int analogInPin2 = A1;  // Analog input pin that the potentiometer is attached to
-const int analogInPin3 = A2;  // Analog input pin that the potentiometer is attached to
-const int analogOutPin = 5; // Analog output pin that the LED is attached to
-
-int sensorValue1 = 0;        // value read from the pot
-int sensorValue2 = 0;        // value read from the pot
-int sensorValue3 = 0;        // value read from the pot
-int outputValue = 0;        // value output to the PWM (analog out)
-
-
-int threshold = 750;
+int cup;
+boolean scored = false;
 
 void setup() {
+  //set each pin as inout
+  for (int thisSensor = 0; thisSensor < sensorCount; thisSensor++) {
+    pinMode(sensors[thisSensor], INPUT);
+  }
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+
+  // calibrate min values during the first 10 seconds
+  while (millis() < 10000) {
+    for (int thisSensor = 0; thisSensor < sensorCount; thisSensor++) {
+      sensorReading[thisSensor] = analogRead(thisSensor);
+      if (sensorReading[thisSensor] < sensorMin[thisSensor]) {
+        sensorMin[thisSensor] = sensorReading[thisSensor];
+      }
+    }
+
+    // se the threshold for each sensor ( 15 off the min value)
+    for (int thisSensor = 0; thisSensor < sensorCount; thisSensor++) {
+      sensorThres[thisSensor] = sensorMin[thisSensor] + 15;
+    }
+
+    // signal the end of the calibration period
+    digitalWrite(13, LOW);
+  }
   // initialize serial communications at 9600 bps:
   Serial.begin(9600);
 
@@ -40,60 +63,50 @@ void setup() {
 
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
+
+
 }
 
-
-
 void loop() {
-  // read the analog in value:
-  sensorValue1 = analogRead(analogInPin1);
-  sensorValue2 = analogRead(analogInPin2);
-  sensorValue3 = analogRead(analogInPin3);
+  // loop from the lowest pin to the highest:
+  for (int thisSensor = 0; thisSensor < sensorCount; thisSensor++) {
+    sensorReading[thisSensor] = analogRead(thisSensor);
+    Serial.print(" ");
+    Serial.print(thisSensor);
+    Serial.print("= ");
+    Serial.print(sensorReading[thisSensor]);
 
+    if (sensorReading[thisSensor] < sensorThres[thisSensor]) {
+      scored = true;
+      cup = thisSensor;
+      Serial.print("Scored! cup = ");
+      Serial.println(thisSensor);
+    }
+  }
+  Serial.println();
 
-  // print the results to the serial monitor:
-  Serial.print("sensor1 = ");
-  Serial.print(sensorValue1);
+  if (scored) {
+    switch (cup) {
+      case (0):
 
-  Serial.print("\t sensor2 = ");
-  Serial.print(sensorValue2);
+        scored = false;
+        break;
+      case (8):
+        rainbowCycle(10);
 
-  Serial.print(" \tsensor3 = ");
-  Serial.println(sensorValue3);
+        scored = false;
+        break;
 
-
-if(sensorValue1< threshold){
-  colorWipe(strip.Color(255, 0, 0), 50); // Red 
-  Serial.print("red ");
+      default:
+        colorWipe(strip.Color(255, 0, 0), 10); // Red
+        colorWipe(strip.Color(0, 255, 0), 10); // Green
+        scored = false;
+        break;
+    }
   }
 
- else if(sensorValue2< threshold){
-  colorWipe(strip.Color(0, 255, 0), 50); // Green 
-  }
-
- else if(sensorValue3< threshold){
-  colorWipe(strip.Color(0, 0, 255), 50); // Blue 
-  }
-
-   else {
-  colorWipe(strip.Color(0, 0, 0), 50); // off 
-  }
-  // wait 2 milliseconds before the next loop
-  // for the analog-to-digital converter to settle
-  // after the last reading:
-  delay(2);
 
 
-
-//  // Send a theater pixel chase in...
-//  theaterChase(strip.Color(127, 127, 127), 50); // White
-//  theaterChase(strip.Color(127, 0, 0), 50); // Red
-//  theaterChase(strip.Color(0, 0, 127), 50); // Blue
-//
-//  rainbow(20);
-//  rainbowCycle(20);
-//  theaterChaseRainbow(50);
-  
 }
 
 
@@ -101,7 +114,7 @@ if(sensorValue1< threshold){
 
 // Fill the dots one after the other with a color
 void colorWipe(uint32_t c, uint8_t wait) {
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
+  for (uint16_t i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, c);
     strip.show();
     delay(wait);
@@ -111,9 +124,9 @@ void colorWipe(uint32_t c, uint8_t wait) {
 void rainbow(uint8_t wait) {
   uint16_t i, j;
 
-  for(j=0; j<256; j++) {
-    for(i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel((i+j) & 255));
+  for (j = 0; j < 256; j++) {
+    for (i = 0; i < strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel((i + j) & 255));
     }
     strip.show();
     delay(wait);
@@ -124,8 +137,8 @@ void rainbow(uint8_t wait) {
 void rainbowCycle(uint8_t wait) {
   uint16_t i, j;
 
-  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
-    for(i=0; i< strip.numPixels(); i++) {
+  for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
+    for (i = 0; i < strip.numPixels(); i++) {
       strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
     }
     strip.show();
@@ -135,17 +148,17 @@ void rainbowCycle(uint8_t wait) {
 
 //Theatre-style crawling lights.
 void theaterChase(uint32_t c, uint8_t wait) {
-  for (int j=0; j<10; j++) {  //do 10 cycles of chasing
-    for (int q=0; q < 3; q++) {
-      for (uint16_t i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, c);    //turn every third pixel on
+  for (int j = 0; j < 10; j++) { //do 10 cycles of chasing
+    for (int q = 0; q < 3; q++) {
+      for (uint16_t i = 0; i < strip.numPixels(); i = i + 3) {
+        strip.setPixelColor(i + q, c);  //turn every third pixel on
       }
       strip.show();
 
       delay(wait);
 
-      for (uint16_t i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0);        //turn every third pixel off
+      for (uint16_t i = 0; i < strip.numPixels(); i = i + 3) {
+        strip.setPixelColor(i + q, 0);      //turn every third pixel off
       }
     }
   }
@@ -153,17 +166,17 @@ void theaterChase(uint32_t c, uint8_t wait) {
 
 //Theatre-style crawling lights with rainbow effect
 void theaterChaseRainbow(uint8_t wait) {
-  for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
-    for (int q=0; q < 3; q++) {
-      for (uint16_t i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
+  for (int j = 0; j < 256; j++) {   // cycle all 256 colors in the wheel
+    for (int q = 0; q < 3; q++) {
+      for (uint16_t i = 0; i < strip.numPixels(); i = i + 3) {
+        strip.setPixelColor(i + q, Wheel( (i + j) % 255)); //turn every third pixel on
       }
       strip.show();
 
       delay(wait);
 
-      for (uint16_t i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0);        //turn every third pixel off
+      for (uint16_t i = 0; i < strip.numPixels(); i = i + 3) {
+        strip.setPixelColor(i + q, 0);      //turn every third pixel off
       }
     }
   }
@@ -173,10 +186,10 @@ void theaterChaseRainbow(uint8_t wait) {
 // The colours are a transition r - g - b - back to r.
 uint32_t Wheel(byte WheelPos) {
   WheelPos = 255 - WheelPos;
-  if(WheelPos < 85) {
+  if (WheelPos < 85) {
     return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   }
-  if(WheelPos < 170) {
+  if (WheelPos < 170) {
     WheelPos -= 85;
     return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
