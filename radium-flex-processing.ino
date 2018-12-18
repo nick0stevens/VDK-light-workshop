@@ -46,14 +46,12 @@ delay(10);
 
 }
 
-
-
 /*
  Processing code
 
-//reads serial port for sensor data from arduino
-// use web cam to obtain black and white image, if sensor data is above threhold
-// a full colour image is saved and shown for a few moments
+reads serial port for sensor data from arduino
+ use web cam to obtain black and white image, if sensor data is above threhold
+ a full colour image is saved and shown for a few moments
  
  
 
@@ -76,7 +74,10 @@ boolean snapped = false;
 boolean pushed = false;
 long snapTime;
 
-int threhold = 200;
+
+int[] previousFrame;
+
+int threhold = 20;
 int counter = 0;
 Capture video;
 
@@ -108,6 +109,9 @@ void setup() {
     video.start();
   }
    numPixels = width* height;
+   
+     previousFrame = new int[numPixels];
+  loadPixels();
   noCursor();
   smooth();
   
@@ -116,7 +120,7 @@ println(i+"-"+Serial.list()[i]);
 }
 
 // find the one that is used by the ardunio and enter the number into the [] brackets below, and ensure that the baud rate on your ardunio is 9600
-myPort = new Serial(this, Serial.list()[0], 9600);
+myPort = new Serial(this, Serial.list()[3], 9600);
 
   
 }
@@ -142,33 +146,41 @@ if(!snapped){
     
     
   else{  
-    video.loadPixels();
-    int threshold = 127; // Set the threshold value
-    float pixelBrightness; // Declare variable to store a pixel's color
-    // Turn each pixel in the video frame black or white depending on its brightness
-    loadPixels();
-    for (int i = 0; i < numPixels; i++) {
-      pixelBrightness = brightness(video.pixels[i]);
-      if (pixelBrightness > threshold) { // If the pixel is brighter than the
-        pixels[i] = white; // threshold value, make it white
-      } 
-      else { // Otherwise,
-        pixels[i] = black; // make it black
-      }
+video.loadPixels(); // Make its pixels[] array available
+    
+    int movementSum = 0; // Amount of movement in the frame
+    for (int i = 0; i < numPixels; i++) { // For each pixel in the video frame...
+      color currColor = video.pixels[i];
+      color prevColor = previousFrame[i];
+      // Extract the red, green, and blue components from current pixel
+      int currR = (currColor >> 16) & 0xFF; // Like red(), but faster
+      int currG = (currColor >> 8) & 0xFF;
+      int currB = currColor & 0xFF;
+      // Extract red, green, and blue components from previous pixel
+      int prevR = (prevColor >> 16) & 0xFF;
+      int prevG = (prevColor >> 8) & 0xFF;
+      int prevB = prevColor & 0xFF;
+      // Compute the difference of the red, green, and blue values
+      int diffR = abs(currR - prevR);
+      int diffG = abs(currG - prevG);
+      int diffB = abs(currB - prevB);
+      // Add these differences to the running tally
+      movementSum += diffR + diffG + diffB;
+      // Render the difference image to the screen
+      pixels[i] = color(diffR, diffG, diffB);
+      // The following line is much faster, but more confusing to read
+      //pixels[i] = 0xff000000 | (diffR << 16) | (diffG << 8) | diffB;
+      // Save the current color into the 'previous' buffer
+      previousFrame[i] = currColor;
     }
-    updatePixels();
-    // Test a location to see where it is contained. Fetch the pixel at the test
-    // location (the cursor), and compute its brightness
-    int testValue = get(mouseX, mouseY);
-    float testBrightness = brightness(testValue);
-    if (testBrightness > threshold) { // If the test location is brighter than
-      fill(black); // the threshold set the fill to black
-    } 
-    else { // Otherwise,
-      fill(white); // set the fill to white
+    // To prevent flicker from frames that are all black (no movement),
+    // only update the screen if the image has changed.
+    if (movementSum > 0) {
+      updatePixels();
+      println(movementSum); // Print the total amount of movement to the console
     }
-
   }
+  
   }
  if(millis()>snapTime+2000){
    if(snapped){
@@ -209,5 +221,4 @@ inBuffer=null;
 }
 }
 }
-*/
- 
+ */
