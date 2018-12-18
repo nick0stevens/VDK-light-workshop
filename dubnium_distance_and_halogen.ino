@@ -10,8 +10,8 @@
 int sensor = 2; //ultrasonic distance sensor
 int trigPin = 4; //TRIG pin, to sens out a pulse to receive back
 int sensorValue;
-int sensorMin = 0;
-int sensorMax = 100;
+int sensorMin = 40;
+int sensorMax = 200;
 
 int output = 5;
 int outputValue;
@@ -38,7 +38,8 @@ void loop()
   Serial.print("sensorValue = ");
   Serial.print(sensorValue);
 
-  outputValue = map(sensorValue, sensorMin, sensorMax, 255, 0);
+  outputValue = map(sensorValue, sensorMin, sensorMax, 255, 50);
+  if(outputValue<50){outputValue = 0;}
   outputValue = constrain(outputValue, 0, 255);
 
   Serial.print("  outputValue = ");
@@ -48,4 +49,3 @@ void loop()
 
 
 }
-
