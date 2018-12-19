@@ -1,11 +1,8 @@
 /*
   reads 10 light sensors into an array
   if any sensor reads low the a color sequence it run.
-
   calibration happens over the first 10 sec when the led on pin 13 is on.
-
   show the highest and lowest values to the sensors during this time.
-
 */
 
 #include <Adafruit_NeoPixel.h>
@@ -18,11 +15,11 @@
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(numPix, PIN, NEO_GRB + NEO_KHZ800);
 
 
-int sensors[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}; // an array of pin numbers to which LEDs are attached
-int sensorCount = 10;           // the number of pins (i.e. the length of the array)
-int sensorMin[] = {1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023};
-int sensorReading[10];
-int sensorThres[10];
+int sensors[] = {0, 1, 2, 3, 4, 5 }; // an array of pin numbers to which LEDs are attached
+int sensorCount = 6;           // the number of pins (i.e. the length of the array)
+int sensorMin[] = {1023, 1023, 1023, 1023, 1023, 1023};
+int sensorReading[6];
+int sensorThres[6];
 
 int cup;
 boolean scored = false;
@@ -32,6 +29,8 @@ void setup() {
   for (int thisSensor = 0; thisSensor < sensorCount; thisSensor++) {
     pinMode(sensors[thisSensor], INPUT);
   }
+   Serial.begin(9600);
+   Serial.println("calibrating");
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 
@@ -53,7 +52,7 @@ void setup() {
     digitalWrite(13, LOW);
   }
   // initialize serial communications at 9600 bps:
-  Serial.begin(9600);
+  Serial.println("finished calibrating");
 
   // This is for Trinket 5V 16MHz, you can remove these three lines if you are not using a Trinket
 #if defined (__AVR_ATtiny85__)
@@ -83,8 +82,8 @@ void loop() {
       Serial.println(thisSensor);
     }
   }
-  Serial.println();
-
+ 
+ Serial.println();
   if (scored) {
     switch (cup) {
       case (0):
